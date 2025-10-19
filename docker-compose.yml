@@ -1,0 +1,58 @@
+services:
+  users-db:
+    image: postgres:16-alpine
+    container_name: users-db
+    env_file: .env.users
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata_users:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  users-api:
+    build: ./users_service
+    container_name: users-api
+    depends_on:
+      users-db:
+        condition: service_healthy
+    env_file:
+      - .env.users
+    ports:
+      - "8001:8000"
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  orders-db:
+    image: postgres:16-alpine
+    container_name: orders-db
+    env_file: .env.orders
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata_orders:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  orders-api:
+    build: ./orders_service
+    container_name: orders-api
+    depends_on:
+      orders-db:
+        condition: service_healthy
+      users-api:
+        condition: service_started
+    env_file:
+      - .env.orders
+    ports:
+      - "8002:8000"
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+volumes:
+  pgdata_users:
+  pgdata_orders:
